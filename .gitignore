@@ -1,3 +1,5 @@
 cache
 arch-live-usb/
 .git
+Makefile_
+README_
