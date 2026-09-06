@@ -7,7 +7,6 @@
 #   make ssh-setup   # 対話式（GitHub登録を挟むため単独実行）
 #   make all         # env-restore → dotfiles → github
 
-HOSTNAME := $(shell hostname)
 HOME_SSH := $(HOME)/.ssh
 
 .DEFAULT_GOAL := help
@@ -105,6 +104,8 @@ github-dropbox-cleanup: ## GH/minorugh.com はclone後.git以外を削除（実�
 	done
 
 # P1 (main): commit + push / others (sub): pull --rebase only
+HOSTNAME := $(shell hostname)
+
 git: ## git push / pull
 	git add -A
 	git diff --cached --quiet || git commit -m "auto: $$(date '+%Y-%m-%d %H:%M:%S')"
