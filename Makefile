@@ -7,6 +7,7 @@
 #   make ssh-setup   # 対話式（GitHub登録を挟むため単独実行）
 #   make all         # env-restore → dotfiles → github
 
+HOSTNAME := $(shell hostname)
 HOME_SSH := $(HOME)/.ssh
 
 .DEFAULT_GOAL := help
