@@ -33,7 +33,8 @@ env-restore: ## Dropbox上のenv.bundle.gpgとabookを復元する（パスフ�
 ## SSH鍵（マシンごとに新規生成。他機の鍵は流用しない）
 ########################################################
 ssh-setup: ##! SSH鍵を新規生成し、GitHub登録・keychain設定までを案内する
-	pacman -Q keychain &>/dev/null || sudo pacman -S --needed --noconfirm keychain xclip
+	command -v pacman >/dev/null && ( pacman -Q keychain &>/dev/null || sudo pacman -S --needed --noconfirm keychain xclip ) || \
+	( dpkg -s keychain xclip &>/dev/null || sudo apt install -y keychain xclip )
 	mkdir -p $(HOME_SSH)
 	test -f $(HOME_SSH)/id_ed25519_$$(hostname) || \
 		ssh-keygen -t ed25519 -N "" -C "$$(hostname)-$$(date +%Y%m%d)" \
@@ -123,4 +124,3 @@ endif
 # Local Variables:
 # buffer-read-only: t
 # End:
-

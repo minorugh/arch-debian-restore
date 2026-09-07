@@ -1,5 +1,5 @@
 cache
 arch-live-usb/
 .git
-Makefile_arch-restore
-README_arch-restore
+Makefile_arch-debian-restore
+

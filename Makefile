@@ -1,9 +1,9 @@
-### Arch Linux 環境復元用 arch-restore
+### Arch & Debian Linux 環境復元用 arch-debian-restore
 # 旧 env-import を改名・再設計。GPG本人鍵ceremony・privateリポジトリへの
 # 依存をやめ、共通パスフレーズ + Dropbox配布だけで完結する構成にした。
 #
 # 実行手順:
-#   cd ~/Dropbox/arch-restore
+#   cd ~/Dropbox/arch-debian-restore
 #   make ssh-setup   # 対話式（GitHub登録を挟むため単独実行）
 #   make all         # env-restore → dotfiles → github
 
