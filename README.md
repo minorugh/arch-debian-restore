@@ -1,6 +1,6 @@
-# arch-restore
+# arch-debian-restore
 
-Arch Linuxマシンをゼロから復元するためのリポジトリ（旧 `env-import`）。
+Arch & Debian Linxマシンをゼロから復元するためのリポジトリ（旧 `env-import`）。
 GPG本人鍵ceremony・privateリポジトリへの依存をやめ、共通パスフレーズと
 Dropbox配布だけで、複数のマシンのどれからでも復元できる状態を目指す。
 
