@@ -1,5 +1,8 @@
 ### Arch Linux 環境構築 (Let's note CF-LX3 / Arch単独機)
-# Debian機（P1/X250）とは完全に独立。dotfiles・SSH鍵・秘密鍵の共有は一切行わない。
+# 共通ブートストラップ(env-restore/ssh-setup/dotfiles・github clone)は
+# arch-debian-restore/Makefile 側で実行済みであることが前提。
+# このMakefileはOS固有の構築部分（パッケージ導入・Emacs自家ビルド・
+# dotfiles展開・bin/スクリプトのリンク等）のみを担当する。
 # archinstallでXfce + sudoユーザー作成直後の「裸」の状態から動く前提で設計している
 # （base-devel/git/wget/nano/vim/CJKフォント等, archinstallの最小構成には
 #   一切入っていないため、bootstrap相当の内容を base に統合済み）。
@@ -48,14 +51,15 @@ AUR_PACKAGES += perl-net-sftp-foreign onlyoffice-bin
 ########################################################
 ## エントリーポイント
 ########################################################
-.PHONY: all help base yay aur sudo-setup zsh-default theme-setup emacs-stable ssh-setup github init git emacs-toggle emacs-start power-menu tile-toggle make-run
+.PHONY: all help base yay aur sudo-setup zsh-default theme-setup emacs-stable init emacs-toggle emacs-start power-menu tile-toggle make-run latex
 
 help: ## ターゲット一覧を表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 	| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 all: base sudo-setup yay aur zsh-default theme-setup ## base→sudo-setup→yay→aur→zsh-default→theme-setup を一括実行
-# emacs-stable/ssh-setup/init はビルド時間・対話入力を伴うため手動で個別実行すること
+# emacs-stable/init はビルド時間・対話入力を伴うため手動で個別実行すること
+# ssh-setup/dotfiles clone は arch-debian-restore 側(共通ブートストラップ)で実行すること
 
 ########################################################
 ## 基本パッケージ（bootstrap統合）
@@ -75,19 +79,24 @@ base: ## 基本パッケージ一括インストール（archinstall直後の裸
 ########################################################
 ## AURヘルパー・AURパッケージ
 ########################################################
-yay: ##! AURヘルパー(yay)をソースからビルドしてインストール
-	rm -rf /tmp/yay
-	git clone https://aur.archlinux.org/yay.git /tmp/yay
-	cd /tmp/yay && makepkg -si --noconfirm
-	rm -rf /tmp/yay
+yay: ##! AURヘルパー(yay)をソースからビルドしてインストール（EndeavourOS等で導入済みの場合はスキップ）
+	command -v yay >/dev/null 2>&1 && echo "✓ yay は導入済みのためスキップ" || ( \
+		rm -rf /tmp/yay && \
+		git clone https://aur.archlinux.org/yay.git /tmp/yay && \
+		cd /tmp/yay && makepkg -si --noconfirm && \
+		rm -rf /tmp/yay )
 
 aur: ##! AUR経由でdropbox・fcitx5-mozc-ut・emacs-mozc・cmigemo・arc-gtk-theme・nkf・perl-net-sftp-foreignをインストール（対話プロンプトあり）
 	$(AUR) $(AUR_PACKAGES)
 	sudo pacman -Rdd --noconfirm emacs 2>/dev/null || true
 	sudo sed -i '/pam_gnome_keyring/d' /etc/pam.d/lightdm /etc/pam.d/lightdm-autologin 2>/dev/null || true
+	pkill -x dropbox 2>/dev/null || true
+	pkill -f "$(HOME)/.dropbox-dist/dropboxd" 2>/dev/null || true
+	nohup dropbox start >/dev/null 2>&1 &
 	@echo "✓ emacs-mozcの依存で入るpacman版emacsは自動除去しました（自家ビルド版のみ残す）"
 	@echo "✓ PAMのgnome-keyring自動起動（keychainと衝突する）は無効化済み"
-# 導入後、メニューからDropboxを起動して初期設定・同期を行うこと
+	@echo "✓ 0段階のヘッドレスdropboxdを終了し、AUR版(トレイ統合)に切り替えました"
+	@echo "  ~/.dropbox-dist は既存のものをそのまま再利用するため削除不要"
 
 ########################################################
 ## システム設定
@@ -140,29 +149,6 @@ emacs-stable: ##! Emacs $(EMACS_VER) のソースビルド（依存パッケー�
 	@echo "  アンインストール: ~/src/emacs-$(EMACS_VER) で sudo make uninstall && make distclean"
 
 ########################################################
-## SSH鍵（Let's note専用に新規生成。Debian機の鍵は流用しない）
-########################################################
-ssh-setup: ##! SSH鍵を新規生成し、GitHub登録・keychain設定までを案内する
-	mkdir -p ~/.ssh
-	test -f ~/.ssh/id_ed25519_arch || ssh-keygen -t ed25519 -N "" -C "archlinux-cf-lx3" -f ~/.ssh/id_ed25519_arch
-	@echo ""
-	@echo "1) 以下の公開鍵をGitHubに登録してください"
-	@echo "   Settings > SSH and GPG keys > New SSH key"
-	@echo "----------------------------------------------------------"
-	@cat ~/.ssh/id_ed25519_arch.pub
-	@echo "----------------------------------------------------------"
-	@echo "2) 登録できたら ~/.ssh/config に以下を追記してください"
-	@echo ""
-	@echo "Host github.com"
-	@echo "    HostName github.com"
-	@echo "    User git"
-	@echo "    IdentityFile ~/.ssh/id_ed25519_arch"
-	@echo "    IdentitiesOnly yes"
-	@echo ""
-	@echo "3) 追記できたら次を実行してください"
-	@echo "   keychain ~/.ssh/id_ed25519_arch && ssh -T git@github.com"
-
-########################################################
 ## bin/ スクリプト（シンボリックリンク＋xfconf-queryショートカット登録）
 # P1由来のdotfiles（~/src/github.com/minorugh/dotfiles）を参照する。
 # このリポジトリ自身にはbin/実体を持たない。
@@ -191,16 +177,9 @@ make-run: ## make-run.sh のリンク作成（Emacs経由のmake実行を安全�
 	$(call BIN_LINK,make-run.sh,make-run.sh)
 
 ########################################################
-## dotfiles(P1由来)のclone
-########################################################
-github: ## dotfilesリポジトリをHTTPSでclone（初回のみ。以降はgit pullで更新）
-	mkdir -p $(HOME)/src/github.com/minorugh
-	git clone https://github.com/minorugh/dotfiles.git $(DOTFILES_DIR)
-	@echo "✓ dotfiles を clone しました（編集・pushはP1のみ、Archはpull専用）"
-
-########################################################
 ## dotfiles展開（P1由来。~/src/github.com/minorugh/dotfiles を
-## 事前にcloneしておくこと。編集・pushはP1のみ、Archはpull専用）
+## 事前に arch-debian-restore の dotfiles: ターゲットでcloneしておくこと。
+## 編集・pushはP1のみ、Archはpull専用）
 ########################################################
 init: ## dotfiles(P1由来)をシンボリックリンク展開
 	for item in zshrc Xmodmap gitconfig vimrc; do \
@@ -219,15 +198,6 @@ latex: ## Arch Linux 用の LaTeX 環境構築とシンボリックリンク作�
 	sudo mktexlsr
 	sudo fmtutil-sys --byfmt platex
 	sudo fmtutil-sys --byfmt uplatex
-
-########################################################
-## arch-install自身のcommit・push
-## （dotfiles/git/Makefile の archlinux 分岐から呼ばれる）
-########################################################
-git: ## commit・push（arch-installはArch機がメインなので常にpush）
-	git add -A
-	git diff --cached --quiet || git commit -m "auto: $$(date '+%Y-%m-%d %H:%M:%S')"
-	git push
 
 # ------------------------------------------------------------
 # [Read-only] This file opens in read-only mode automatically.

@@ -1,4 +1,5 @@
 cache
 .git
+arch-install/arch-live-usb/
 Makefile_arch-debian-restore
 Makefile.bak
