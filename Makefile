@@ -115,17 +115,16 @@ github-remote-add: ##! GH/minorugh.com に xserver + Gitea pushurl を追加（D
 # git clone 直後は GitHub のみが remote。このターゲットで xserver・Gitea を pushurl に追加する。
 # push 時は GitHub・xserver・Gitea の3箇所へ送信される（fetch は GitHub のみ）
 
-# P1 (main): commit + push / others (sub): pull --rebase only
+# P1 (main): commit + push / others (sub): 何もしない（Dropbox同期で最新になる）
 HOSTNAME := $(shell hostname)
 
-git: ## git push / pull
+git: ## P1のみ commit + push（サブ機は何もしない）
+ifeq ($(HOSTNAME),P1)
 	git add -A
 	git diff --cached --quiet || git commit -m "auto: $$(date '+%Y-%m-%d %H:%M:%S')"
-ifeq ($(HOSTNAME),P1)
 	git push
 else
-	@echo "$(HOSTNAME): サブ機からはpushしません"
-	git pull --rebase
+	@echo "$(HOSTNAME): サブ機では何もしません（Dropbox同期で最新になります）"
 endif
 
 # ------------------------------------------------------------

@@ -16,7 +16,17 @@ Dropbox配布だけで、複数のマシンのどれからでも復元できる�
 netinstall / archinstall 直後の裸環境には git・make・Dropbox が無い
 （Arch/EndeavourOSの場合はyay・git・makeが標準搭載のため、実質Dropboxのみ）。
 
-1. Dropboxクライアントを手動インストールし、ログインする
+**このREADMEはこのGitHubページ自体を、そのマシンのFirefox（Live環境/
+インストール後どちらにも入っている）で 'https://github.com/minorugh' 開いて、
+'arch-debian-restore/README.md' から以下のコマンドをそのままコピペすればよい。手で打つ必要はない。**
+
+1. Dropboxクライアントをインストールする（Arch/Debian共通コマンド）
+   ```bash
+   cd ~ && wget -O - "https://www.dropbox.com/download?plat=lnx.x86_64" | tar xzf -
+   ~/.dropbox-dist/dropboxd
+   ```
+   初回起動時にアカウント連携用のURLが表示される。そのURLをクリックして
+   ブラウザでログインする。
 2. 同期完了を待つ
    → `~/Dropbox/arch-debian-restore/`（`1st.sh`・`Makefile`・
      `env.bundle.gpg` 等を含む）が実体として出現する
@@ -28,6 +38,20 @@ netinstall / archinstall 直後の裸環境には git・make・Dropbox が無い
    ```
 
 ここまで終われば、以降は全て `make` コマンドで進行できる。
+
+### Live環境で日本語キーボードにならない場合
+
+Debian Live / EndeavourOS Liveでは、日本語キーボード配列が設定されておらず、
+`:` などのキーがUS配列になることがある。
+
+その場合はターミナルで以下を実行する。
+
+```bash
+setxkbmap jp
+```
+
+（Archでのデスクトップ統合＝トレイアイコン表示は、後で `make aur` を実行
+すると自動的に切り替わる。0段階では気にしなくてよい）
 
 ## 前提
 

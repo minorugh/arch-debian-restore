@@ -82,6 +82,7 @@ make all         # dotfiles → github
 | `dotfiles` | `dotfiles` リポジトリをclone |
 | `github` | その他の個人リポジトリ群をclone |
 | `github-dropbox-cleanup` | `GH`・`minorugh.com`・`arch-debian-restore` はclone後 `.git` 以外を削除（実体はDropbox、競合回避。`github` から自動実行） |
+| `github-remote-add` | `GH`・`minorugh.com` に自前サーバー(xserver)・自前Git GUI(Gitea)のpushurlを追加（対話式、`##!`。Docker/Gitea起動後に手動実行） |
 | `git` | `git add -A` → 変更があればcommit。P1機ではpush、サブ機ではpull --rebase |
 | `all` | `dotfiles` → `github` をまとめて実行 |
 | `help` | ターゲット一覧を表示する |
@@ -89,6 +90,54 @@ make all         # dotfiles → github
 `env-restore`・`ssh-setup` はいずれも対話的な手順を挟むため、`all` には含めず
 個別に先に実行する運用にしている。`ssh-setup` は `~/.env_source/.ssh` の内容を
 参照するため、必ず `env-restore` の後に実行すること。
+
+`github-remote-add` も対話式（`##!`）で、かつ自前サーバー・自前Git GUI（Gitea等）が
+起動済みであることが前提のため、`all` には含めず環境構築が一通り終わった後に
+手動実行する運用にしている（詳細は下記「GitHub private リポジトリの保険運用について」）。
+
+## GitHub private リポジトリの保険運用について
+
+GitHubの利用規約変更やアカウント制限など、private リポジトリが
+将来アクセス不能になるリスクに備え、一部のリポジトリは
+GitHub 以外にも remote を持たせている。
+
+### 考え方
+
+判断基準は「このリポジトリが private かどうか」の1点。
+public リポジトリは GitHub 側の制限対象になり得ないため、
+GitHub 単独で十分という考え方をとっている。
+
+private のうち、特に失うと復旧作業自体が止まってしまう
+「致命傷インフラ」に該当するリポジトリ（`GH`・`minorugh.com`）だけ、
+以下の2つを追加の remote として持たせている。
+
+- **自前の Git サーバー**（bare リポジトリ、xserver上）: 実データそのものの
+  第三の保管場所。GitHub が使えなくなった場合の最終防衛ライン。
+- **自前の Git GUI**（Gitea をセルフホスト）: bare リポジトリは
+  Web UI を持たないため、その代替として並行運用。
+
+`origin` に `pushurl` を複数登録することで、`git push` 一発で
+GitHub・自前サーバー・自前GUIの全てに同時送信される。
+`fetch` は GitHub のみに固定し、取得元は単一に保っている。
+
+```bash
+git remote -v
+# origin  git@github.com:xxx/repo.git (fetch)
+# origin  git@github.com:xxx/repo.git (push)
+# origin  xsrv:/home/minorugh/git/repo.git (push)
+# origin  http://localhost:3000/minoru/repo.git (push)
+```
+
+### 注意点
+
+- `github-remote-add` は対象サービス（Gitea等）が起動済みであることが
+  前提になるため、`env-restore`/`ssh-setup`/`dotfiles`/`github` のような
+  一連のリストア処理には含めず、環境構築が一通り終わった後に
+  手動実行する運用にしている
+- `GH`・`minorugh.com` は実体を別ディレクトリ（Dropbox）で管理し、
+  `.git`本体だけをここに置く構成のため、clone直後に作業ファイル一式が
+  展開されてしまう。これを`.git`のみに整理するのが`github-dropbox-cleanup`
+  （`github`ターゲットから自動実行される）
 
 ## このリポジトリに含まれないもの
 
