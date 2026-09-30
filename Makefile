@@ -11,8 +11,12 @@
 HOME_SSH := $(HOME)/.ssh
 ENV_SOURCE_DIR := $(HOME)/.env_source
 
+# ifeq は読み込み時に評価されるため、HOSTNAME は ifeq より前に定義しておくこと。
+# (後ろに置くと、環境変数として export されていない場合 P1 でも else 側になる)
+HOSTNAME := $(shell hostname)
+
 .DEFAULT_GOAL := help
-.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup github-remote-add
+.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup
 
 help: ## ターゲット一覧を表示する
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -32,9 +36,9 @@ env-restore: ## Dropbox上のenv.bundle.gpgを復元する（パスフレーズ�
 ########################################################
 ## SSH鍵（マシンごとに新規生成。他機の鍵は流用しない）
 ########################################################
-ssh-setup: ##! SSH鍵を新規生成し、config/known_hosts展開・GitHub登録・keychain設定までを案内する
-	command -v pacman >/dev/null && ( pacman -Q keychain &>/dev/null || sudo pacman -S --needed --noconfirm keychain xclip ) || \
-	( dpkg -s keychain xclip &>/dev/null || sudo apt install -y keychain xclip )
+ssh-setup: ##! SSH鍵（空パスフレーズ）を新規生成し、config/known_hosts展開・GitHub登録までを案内する
+	command -v pacman >/dev/null && ( pacman -Q xclip &>/dev/null || sudo pacman -S --needed --noconfirm xclip ) || \
+	( dpkg -s xclip &>/dev/null || sudo apt install -y xclip )
 	mkdir -p $(HOME_SSH)
 	test -f $(HOME_SSH)/id_ed25519_$$(hostname) || \
 		ssh-keygen -t ed25519 -N "" -C "$$(hostname)-$$(date +%Y%m%d)" \
@@ -51,7 +55,7 @@ ssh-setup: ##! SSH鍵を新規生成し、config/known_hosts展開・GitHub登�
 	@cat $(HOME_SSH)/id_ed25519_$$(hostname).pub
 	@echo "----------------------------------------------------------"
 	@echo "2) 登録できたら次を実行してください"
-	@echo "   keychain ~/.ssh/id_ed25519_$$(hostname) && ssh -T git@github.com"
+	@echo "   ssh -T git@github.com"
 
 ########################################################
 ## dotfiles
@@ -67,7 +71,8 @@ dotfiles: ## dotfilesリポジトリをclone
 # 実体が ~/Dropbox 側にあり、ここには .git 本体のみを置くリポジトリ
 DROPBOX_GITDIR_REPOS := GH minorugh.com arch-debian-restore
 
-github: ## GitHubリポジトリ群をclone
+github: ## GitHubリポジトリ群をclone（P1のみ）
+ifeq ($(HOSTNAME),P1)
 	mkdir -p ${HOME}/src/github.com/minorugh
 	cd ${HOME}/src/github.com/minorugh; \
 	git clone git@github.com:minorugh/GH.git; \
@@ -82,8 +87,12 @@ github: ## GitHubリポジトリ群をclone
 	git clone git@github.com:minorugh/xsrv-GH.git; \
 	git clone git@github.com:minorugh/xsrv-minorugh.git
 	$(MAKE) -s github-dropbox-cleanup
+else
+	@echo "$(HOSTNAME): サブ機では何もしません"
+endif
 
-github-dropbox-cleanup: ## GH/minorugh.com/arch-debian-restore はclone後.git以外を削除（実体はDropbox、競合回避）
+github-dropbox-cleanup: ## clone後に.git以外を削除（P1のみ。実体はDropbox、競合回避）
+ifeq ($(HOSTNAME),P1)
 	@for repo in $(DROPBOX_GITDIR_REPOS); do \
 		dir=${HOME}/src/github.com/minorugh/$$repo; \
 		if [ -d "$$dir/.git" ]; then \
@@ -93,31 +102,11 @@ github-dropbox-cleanup: ## GH/minorugh.com/arch-debian-restore はclone後.git�
 			echo "⚠ skip: $$dir/.git が見つかりません（clone失敗の可能性）"; \
 		fi; \
 	done
-
-# GitHub private リポジトリの制限リスクに備え、xserver(bare repo)+Giteaを保険として追加するリポジトリ
-# ( xserverはbare repoのためGUIを持たない → Giteaがその代役 )
-# 2026.09.16 dotfiles/Makefileから移植（個人のリポジトリ群管理という関心事をこちらに一本化）
-PRIVATE_HEDGE_REPOS := GH minorugh.com
-
-github-remote-add: ##! GH/minorugh.com に xserver + Gitea pushurl を追加（Docker/Gitea起動後に手動実行）
-	@read -p "Gitea は起動していますか？ xserver への疎通は確認済みですか？ [y/N]: " ans; \
-	[ "$$ans" = "y" ] || { echo "中止しました。"; exit 1; }
-	@for repo in $(PRIVATE_HEDGE_REPOS); do \
-		dir=${HOME}/src/github.com/minorugh/$$repo; \
-		if git -C "$$dir" remote get-url --push --all origin | grep -q "xsrv"; then \
-			echo "⚠ skip: $$repo は既に設定済みです"; \
-		else \
-			git -C "$$dir" remote set-url --add --push origin xsrv:/home/minorugh/git/$$repo.git; \
-			git -C "$$dir" remote set-url --add --push origin http://localhost:3000/minoru/$$repo.git; \
-			echo "✓ pushurl added: $$repo (xserver + Gitea)"; \
-		fi; \
-	done
-# git clone 直後は GitHub のみが remote。このターゲットで xserver・Gitea を pushurl に追加する。
-# push 時は GitHub・xserver・Gitea の3箇所へ送信される（fetch は GitHub のみ）
+else
+	@echo "$(HOSTNAME): サブ機では何もしません"
+endif
 
 # P1 (main): commit + push / others (sub): 何もしない（Dropbox同期で最新になる）
-HOSTNAME := $(shell hostname)
-
 git: ## P1のみ commit + push（サブ機は何もしない）
 ifeq ($(HOSTNAME),P1)
 	git add -A
