@@ -16,7 +16,7 @@ ENV_SOURCE_DIR := $(HOME)/.env_source
 HOSTNAME := $(shell hostname)
 
 .DEFAULT_GOAL := help
-.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup
+.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup git
 
 help: ## ターゲット一覧を表示する
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \

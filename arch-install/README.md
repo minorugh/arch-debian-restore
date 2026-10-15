@@ -73,11 +73,13 @@ make ssh-setup     # 対話式。SSH鍵新規生成・GitHub登録
 make all           # dotfiles → github
 ```
 
+`github` はP1のみのターゲットで、Arch（サブ機）では何もしない。
+
 ### 5. Arch固有の環境構築
 
 ```bash
 cd arch-install
-make base         # 基本パッケージ・日本語ロケール一括導入
+make base         # 基本パッケージ・日本語ロケール・keyring（gnome-keyring・seahorse）一括導入
 make sudo-setup   # wheelグループのsudo有効化
 make yay          # AURヘルパー（導入済みならスキップ）
 make aur          # fcitx5-mozc-ut・emacs-mozc・cmigemo・arc-gtk-theme・nkf 等を導入
@@ -86,6 +88,17 @@ make zsh-default  # ログインシェルをzshに
 
 （`dropbox` はステップ3で手動導入済みだが `make aur` のAUR_PACKAGESにも
 含まれている。`--needed` のため再実行しても無害）
+
+### 5-2. keyringの初回設定
+
+`make base` で gnome-keyring・seahorse・libsecret が入る。Chromium を初めて
+起動すると、キーリングのパスワードのダイアログが出るので、
+**何も入力せずに Enter** を押す（空パスワードの `Default_Keyring` ができる）。
+以降は、自動ログインでも聞かれない（Debian機と同じ動作）。この操作は自動化できない。
+
+- Debian機とキーリングは共用しない。Arch は独立して持つ
+- PAMの `pam_gnome_keyring` の行は削除しない（自動ログインでは効かないが、害もない）
+- ssh には関係しない（agent は使わない）
 
 ### 6. Emacs自家ビルド（任意・時間がかかります）
 
@@ -100,6 +113,9 @@ make init
 ```
 
 `.gitconfig`の`user.name`/`user.email`は展開後に書き換えてください。
+
+Arch はサブ機なので、dotfiles は pull だけを行い（`git pull --ff-only`）、push しない
+（`git remote set-url --push origin no-push`）。
 
 ---
 
@@ -128,7 +144,7 @@ EDITOR=nano visudo                  # %wheel ALL=(ALL:ALL) ALL の行頭#を確�
 詳細は `docs/arch-standalone-handover.md` を参照。
 
 - `.xprofile` / `.Xmodmap`（キーボード・X周りの調整。CF-LX3実機のkeycode要確認）
-- `.autostart.sh`（Debian機ではDropbox経由の復元・keychain自動化等、共有前提の設計。書き直しが必要）
+- `.autostart.sh`（Debian機ではDropbox経由のkeyring復元・Mozcのコピー等、共有前提の設計。Archではkeyringを共有しないため書き直しが必要。keychainの起動ブロックはコメントアウト済み）
 - neomutt関連
 - 自作elispパッケージ群（git-peek, gcal-dashboard, dashboard-widget-extensions等。
   個別に独立リポジトリとして公開済みのため、必要になった時点で個別にclone）
@@ -137,5 +153,6 @@ EDITOR=nano visudo                  # %wheel ALL=(ALL:ALL) ALL の行頭#を確�
 
 - pacman版emacsとの共存は avoid 済み（`base`にemacsを含めていない）。
   Let's note側での自家ビルド動作確認は次回セッションで実施
-- keychainのエージェントが原因不明で時々死ぬ問題が過去にあった（未解決、再発時は
-  `keychain --stop all && rm -rf ~/.ssh/agent ~/.keychain && keychain <鍵>` でリセット）
+- keychainは全廃した（2026-10）。sshはagentを使わず、`~/.ssh/config` の
+  `IdentityFile`（空パスフレーズのマシン専用鍵）で直接接続する。過去にあった
+  「keychainのエージェントが時々死ぬ問題」は、keychain自体がないため該当しない

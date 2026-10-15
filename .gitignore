@@ -1,5 +1,9 @@
 cache
 .git
 arch-install/arch-live-usb/
-Makefile_arch-debian-restore
-Makefile.bak
+
+# AIとの作業時に、複数ディレクトリにある同名ファイル（Makefile、README.md）
+# を識別するための一時リネームファイルは Git 管理対象外とする
+README_*.md
+Makefile_*
+*.bak

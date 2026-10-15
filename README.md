@@ -78,22 +78,19 @@ make all         # dotfiles → github
 | ターゲット | 内容 |
 |---|---|
 | `env-restore` | Dropbox上の `env.bundle.gpg` と最新のabookを復元する |
-| `ssh-setup` | SSH鍵をこのマシン専用に新規生成し、config/known_hosts展開・GitHub登録・keychain設定までを案内する |
+| `ssh-setup` | SSH鍵（空パスフレーズ）をこのマシン専用に新規生成し、config/known_hosts展開・GitHub登録までを案内する（ssh-agent・keychainは使わない） |
 | `dotfiles` | `dotfiles` リポジトリをclone |
-| `github` | その他の個人リポジトリ群をclone |
-| `github-dropbox-cleanup` | `GH`・`minorugh.com`・`arch-debian-restore` はclone後 `.git` 以外を削除（実体はDropbox、競合回避。`github` から自動実行） |
-| `github-remote-add` | `GH`・`minorugh.com` に自前サーバー(xserver)・自前Git GUI(Gitea)のpushurlを追加（対話式、`##!`。Docker/Gitea起動後に手動実行） |
-| `git` | `git add -A` → 変更があればcommit。P1機ではpush、サブ機ではpull --rebase |
-| `all` | `dotfiles` → `github` をまとめて実行 |
+| `github` | その他の個人リポジトリ群をclone（P1のみ。サブ機では何もしない） |
+| `github-dropbox-cleanup` | `GH`・`minorugh.com`・`arch-debian-restore` はclone後 `.git` 以外を削除（実体はDropbox、競合回避。`github` から自動実行。P1のみ） |
+| `git` | P1機のみ `git add -A` → 変更があればcommit → push。サブ機は何もしない（Dropbox同期で最新になる） |
+| `all` | `dotfiles` → `github` をまとめて実行（`github` はP1のみ） |
 | `help` | ターゲット一覧を表示する |
 
 `env-restore`・`ssh-setup` はいずれも対話的な手順を挟むため、`all` には含めず
 個別に先に実行する運用にしている。`ssh-setup` は `~/.env_source/.ssh` の内容を
 参照するため、必ず `env-restore` の後に実行すること。
 
-`github-remote-add` も対話式（`##!`）で、かつ自前サーバー・自前Git GUI（Gitea等）が
-起動済みであることが前提のため、`all` には含めず環境構築が一通り終わった後に
-手動実行する運用にしている（詳細は下記「GitHub private リポジトリの保険運用について」）。
+GH・minorugh.com の push 先（xserver・Gitea）を追加する `github-remote-add` は、Makefile から削除した（下記「GitHub private リポジトリの保険運用について」を参照）。
 
 ## GitHub private リポジトリの保険運用について
 
@@ -130,14 +127,14 @@ git remote -v
 
 ### 注意点
 
-- `github-remote-add` は対象サービス（Gitea等）が起動済みであることが
-  前提になるため、`env-restore`/`ssh-setup`/`dotfiles`/`github` のような
-  一連のリストア処理には含めず、環境構築が一通り終わった後に
-  手動実行する運用にしている
+- push 先を追加する `github-remote-add`（と `PRIVATE_HEDGE_REPOS`）は、
+  Makefile から削除した。新しいマシンで GH・minorugh.com の xserver・Gitea への
+  push 先を設定するときは、手動で設定する（設定後の形は上の `git remote -v` を参照）。
+  pushするのはP1機のみ
 - `GH`・`minorugh.com` は実体を別ディレクトリ（Dropbox）で管理し、
   `.git`本体だけをここに置く構成のため、clone直後に作業ファイル一式が
   展開されてしまう。これを`.git`のみに整理するのが`github-dropbox-cleanup`
-  （`github`ターゲットから自動実行される）
+  （`github`ターゲットから自動実行される。P1のみ）
 
 ## このリポジトリに含まれないもの
 
@@ -148,5 +145,11 @@ git remote -v
 
 `arch-debian-restore` はGH・minorugh.comと同様に「Dropbox実体 + gitdirリンク」
 方式（`github-dropbox-cleanup` で `.git` 以外を削除する運用）に揃えてある。
-GitHub側への更新は `git` ターゲットで行い、P1機からのみpushし、サブ機は
-`pull --rebase` のみを行う。
+GitHub側への更新は `git` ターゲットで行い、commit と push はP1機だけが行う。
+サブ機は何もしない（`pull` も不要。Dropbox同期で最新になる）。サブ機で
+`~/src/github.com/minorugh/` に、GH・minorugh.com・arch-debian-restore を
+cloneしないこと。
+
+`dotfiles` はDropboxで共有しない通常のリポジトリなので、サブ機でも
+`git pull --ff-only` で更新する。サブ機は push しない
+（`git remote set-url --push origin no-push`）。
