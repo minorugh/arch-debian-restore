@@ -63,7 +63,7 @@ setxkbmap jp
 
 ```bash
 cd ~/Dropbox/arch-debian-restore
-make env-restore # 対話式。env.bundle.gpgを復号し ~/.env_source・abookを復元する
+make env-restore # 対話式。env.bundle.gpgを復号し ~/.env_source を復元する
 make ssh-setup   # 対話式。SSH鍵をこのマシン専用に新規生成し、config/known_hosts展開・GitHub登録を案内する
 make all         # dotfiles → github
 ```
@@ -72,6 +72,36 @@ make all         # dotfiles → github
 復号・cloneするだけ）ため、`ssh-setup` より先に実行できる。この順序で実行することで、
 `ssh-setup` の時点で `~/.env_source/.ssh` 配下の config テンプレートを展開でき、
 以降の `dotfiles`・`github` は最初から `git@` （SSH）でclone可能になる。
+
+### クリーンリストア時の旧SSH鍵の扱い
+
+同じマシンをクリーンリストアする場合、旧秘密鍵はディスクごと消えているため、
+GitHub等に登録済みの旧公開鍵は不要になる。`make ssh-setup` の前に削除しておく。
+
+1. GitHub → Settings → SSH and GPG keys で、このマシンの旧鍵を削除する
+2. `make ssh-setup` で新鍵を生成し、同じページに登録する
+3. `ssh -T git@github.com` で接続を確認する
+
+旧マシンがまだ稼働していてpushが必要な場合のみ、手順3の接続確認が済んでから
+旧鍵を削除する。
+
+**命名規則**
+
+- 鍵ファイル名は `id_ed25519_<hostname>` で固定する。共用の config テンプレート
+  （`~/.env_source/.ssh/config`）の `IdentityFile` と一致させるため、日付は入れない
+- 鍵のコメント（`.pub` 末尾）は `ssh-setup` が `<hostname>-<YYYYMMDD>` で自動付与する
+- GitHub登録時のTitleは、このコメントと同じ文字列にする（世代の判別用。
+  GitHubは登録後にTitleを編集できないため、登録時に決める）
+
+**P1機のみ追加で入れ替える場所**
+
+GH・minorugh.com の保険用remoteに使っている xserver（`authorized_keys`）と
+Gitea にも旧鍵が登録されている。同様に旧鍵を削除し、新鍵を登録する。
+
+**注意**
+
+`ssh-setup` は同名の鍵ファイルが既にある場合、新規生成せず既存の鍵を使う。
+鍵だけ作り直したいときは、先に `~/.ssh/id_ed25519_<hostname>` と `.pub` を削除する。
 
 ## Makefileターゲット一覧
 
