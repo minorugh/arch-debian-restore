@@ -11,6 +11,13 @@
 HOME_SSH := $(HOME)/.ssh
 ENV_SOURCE_DIR := $(HOME)/.env_source
 
+# 保険: env-restore / ssh-setup は対話式（パスフレーズ入力・GitHub登録）のため、
+# Emacs 内（compile 等）から実行しようとしたら、読み込み時点で止める。
+# INSIDE_EMACS は Emacs が子プロセスに設定する環境変数。止まる場合はレシピを
+# 1行も実行しないので、鍵の生成などは起きない。他のターゲット（git 等）は
+# Emacs から実行しても影響を受けない。
+$(if $(and $(INSIDE_EMACS),$(filter env-restore ssh-setup,$(MAKECMDGOALS))),$(error env-restore / ssh-setup は対話式です。ターミナルから実行してください))
+
 # ifeq は読み込み時に評価されるため、HOSTNAME は ifeq より前に定義しておくこと。
 # (後ろに置くと、環境変数として export されていない場合 P1 でも else 側になる)
 HOSTNAME := $(shell hostname)
@@ -36,7 +43,7 @@ env-restore: ## Dropbox上のenv.bundle.gpgを復元する（パスフレーズ�
 ########################################################
 ## SSH鍵（マシンごとに新規生成。他機の鍵は流用しない）
 ########################################################
-ssh-setup: ##! SSH鍵（空パスフレーズ）を新規生成し、config/known_hosts展開・GitHub登録までを案内する
+ssh-setup: ## SSH鍵（空パスフレーズ）を新規生成し、config/known_hosts展開・GitHub登録までを案内する
 	command -v pacman >/dev/null && ( pacman -Q xclip &>/dev/null || sudo pacman -S --needed --noconfirm xclip ) || \
 	( dpkg -s xclip &>/dev/null || sudo apt install -y xclip )
 	mkdir -p $(HOME_SSH)
@@ -50,6 +57,7 @@ ssh-setup: ##! SSH鍵（空パスフレーズ）を新規生成し、config/know
 	xdg-open https://github.com/settings/ssh/new 2>/dev/null &
 	@echo ""
 	@echo "1) 公開鍵をクリップボードにコピーしました。開いたページに貼り付けて登録してください"
+	@echo "   （Title は id_ed25519_$$(hostname) にします）"
 	@echo "   （念のため下にも表示します）"
 	@echo "----------------------------------------------------------"
 	@cat $(HOME_SSH)/id_ed25519_$$(hostname).pub

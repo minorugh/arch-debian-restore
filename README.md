@@ -68,35 +68,59 @@ make ssh-setup   # 対話式。SSH鍵をこのマシン専用に新規生成し�
 make all         # dotfiles → github
 ```
 
+**以上の `make` コマンドは、必ずターミナルから実行すること。**
+`env-restore`（gpgパスフレーズの入力）と `ssh-setup`（公開鍵のGitHub登録）は
+対話式のため、Emacs の compile バッファ等からは実行できない。
+
 `env-restore` は GitHub への SSH 接続を必要としない（Dropbox上のファイルをローカルで
 復号・cloneするだけ）ため、`ssh-setup` より先に実行できる。この順序で実行することで、
 `ssh-setup` の時点で `~/.env_source/.ssh` 配下の config テンプレートを展開でき、
 以降の `dotfiles`・`github` は最初から `git@` （SSH）でclone可能になる。
 
-### クリーンリストア時の旧SSH鍵の扱い
-
-同じマシンをクリーンリストアする場合、旧秘密鍵はディスクごと消えているため、
-GitHub等に登録済みの旧公開鍵は不要になる。`make ssh-setup` の前に削除しておく。
-
-1. GitHub → Settings → SSH and GPG keys で、このマシンの旧鍵を削除する
-2. `make ssh-setup` で新鍵を生成し、同じページに登録する
-3. `ssh -T git@github.com` で接続を確認する
-
-旧マシンがまだ稼働していてpushが必要な場合のみ、手順3の接続確認が済んでから
-旧鍵を削除する。
+### SSH鍵の命名規則と、クリーンリストア時の旧鍵の扱い
 
 **命名規則**
 
 - 鍵ファイル名は `id_ed25519_<hostname>` で固定する。共用の config テンプレート
-  （`~/.env_source/.ssh/config`）の `IdentityFile` と一致させるため、日付は入れない
+  （`~/.env_source/.ssh/config`）の `IdentityFile ~/.ssh/id_ed25519_%l` と
+  一致させるため、日付は入れない
 - 鍵のコメント（`.pub` 末尾）は `ssh-setup` が `<hostname>-<YYYYMMDD>` で自動付与する
-- GitHub登録時のTitleは、このコメントと同じ文字列にする（世代の判別用。
-  GitHubは登録後にTitleを編集できないため、登録時に決める）
+- GitHub登録時のTitleも、鍵ファイル名と同じ `id_ed25519_<hostname>` にしておく。
+  **これは必須ではなく、管理上の取り決めである。** GitHubのTitleは単なるラベルで、
+  接続の可否には関係しない（接続に必要なのは、登録した公開鍵と手元の秘密鍵が
+  対になっていること）。ただ、Titleを鍵ファイル名に揃えておけば、一覧を見て
+  どのマシンの鍵か分かる。日付は、コメントとGitHubの「Added on」で分かるので
+  Titleには入れない
 
-**P1機のみ追加で入れ替える場所**
+**クリーンリストア時は、旧鍵を先に削除する**
 
-GH・minorugh.com の保険用remoteに使っている xserver（`authorized_keys`）と
-Gitea にも旧鍵が登録されている。同様に旧鍵を削除し、新鍵を登録する。
+Titleを `id_ed25519_<hostname>` に揃える以上、旧鍵を残したまま新鍵を登録すると
+同じTitleの鍵が2本並び、どちらが現役か分からなくなる（GitHubは登録後にTitleを
+編集できないため、後から区別も付けられない）。そこで、同じマシンをクリーンリストア
+する場合は、旧鍵を先に削除してから新鍵を登録する。旧秘密鍵はディスクごと消えて
+いるので、旧公開鍵を残す意味もない。
+
+1. GitHub → Settings → SSH and GPG keys で、このマシンの旧鍵を削除する
+2. `make ssh-setup` で新鍵を生成し、同じページにTitleを `id_ed25519_<hostname>`
+   にして登録する
+3. `ssh -T git@github.com` で接続を確認する
+
+**鍵の登録先は2か所（config の Host と対応）**
+
+`~/.ssh/config` では、`Host github.com` と `Host xsrv` の両方が同じ
+`IdentityFile ~/.ssh/id_ed25519_%l`（`%l` はそのマシンのホスト名）を使う。
+鍵を作り直したら、公開鍵を両方に登録し直す。
+
+| 接続先（Host） | 用途 | 登録する場所 |
+|---|---|---|
+| `github.com` | clone・push | GitHub → Settings → SSH and GPG keys |
+| `xsrv`（minorugh.xsrv.jp、ポート10022） | `ssh xsrv`、SFTP、xsrv-backup の rsync、GH・minorugh.com の保険用remote | xserver の `~/.ssh/authorized_keys`（旧鍵の行を削除し、新鍵を追加） |
+
+接続先の指定（ホスト名・ポート・ユーザー・鍵）は config の `Host xsrv` に
+一元化する。リポジトリの URL は `xsrv:/home/minorugh/git/...` の別名で書き、
+ホスト名を直書きしない（直書きすると config が効かず、鍵が使われない）。
+SFTPクライアント（FileZilla等）が config を使わず鍵ファイルを直接指定している
+場合は、そちらの設定も確認する。
 
 **注意**
 
@@ -120,7 +144,7 @@ Gitea にも旧鍵が登録されている。同様に旧鍵を削除し、新�
 個別に先に実行する運用にしている。`ssh-setup` は `~/.env_source/.ssh` の内容を
 参照するため、必ず `env-restore` の後に実行すること。
 
-GH・minorugh.com の push 先（xserver・Gitea）を追加する `github-remote-add` は、Makefile から削除した（下記「GitHub private リポジトリの保険運用について」を参照）。
+GH・minorugh.com の push 先（xserver）を追加する `github-remote-add` は、Makefile から削除した（下記「GitHub private リポジトリの保険運用について」を参照）。
 
 ## GitHub private リポジトリの保険運用について
 
@@ -136,15 +160,11 @@ GitHub 単独で十分という考え方をとっている。
 
 private のうち、特に失うと復旧作業自体が止まってしまう
 「致命傷インフラ」に該当するリポジトリ（`GH`・`minorugh.com`）だけ、
-以下の2つを追加の remote として持たせている。
-
-- **自前の Git サーバー**（bare リポジトリ、xserver上）: 実データそのものの
-  第三の保管場所。GitHub が使えなくなった場合の最終防衛ライン。
-- **自前の Git GUI**（Gitea をセルフホスト）: bare リポジトリは
-  Web UI を持たないため、その代替として並行運用。
+自前の Git サーバー（xserver 上の bare リポジトリ）を追加の push 先として
+持たせている。GitHub が使えなくなった場合の最終防衛ラインである。
 
 `origin` に `pushurl` を複数登録することで、`git push` 一発で
-GitHub・自前サーバー・自前GUIの全てに同時送信される。
+GitHub と xserver の両方に同時送信される。
 `fetch` は GitHub のみに固定し、取得元は単一に保っている。
 
 ```bash
@@ -152,19 +172,62 @@ git remote -v
 # origin  git@github.com:xxx/repo.git (fetch)
 # origin  git@github.com:xxx/repo.git (push)
 # origin  xsrv:/home/minorugh/git/repo.git (push)
-# origin  http://localhost:3000/minoru/repo.git (push)
 ```
+
+この保険は「GitHub の制限・停止」への備えであり、「xserver 自体の喪失」への
+備えではない。`GH` の中身は xserver から rsync した動的ファイルを含むため、
+xserver を失う場合は Dropbox と GitHub が残りの控えになる。
+
+なお、`xsrv-GH`・`xsrv-minorugh` は xserver の公開サイトのローカルミラー
+（`xsrv-backup-smart.sh` が rsync）で、GitHub へ push して世代管理している。
+xserver 自体のバックアップなので、xserver へは push しない。
 
 ### 注意点
 
 - push 先を追加する `github-remote-add`（と `PRIVATE_HEDGE_REPOS`）は、
-  Makefile から削除した。新しいマシンで GH・minorugh.com の xserver・Gitea への
-  push 先を設定するときは、手動で設定する（設定後の形は上の `git remote -v` を参照）。
-  pushするのはP1機のみ
+  Makefile から削除した。新しいマシンで GH・minorugh.com の xserver への
+  push 先を設定するときは、手動で設定する。pushするのはP1機のみ
+
+  ```bash
+  git remote set-url --add --push origin git@github.com:minorugh/GH.git
+  git remote set-url --add --push origin xsrv:/home/minorugh/git/GH.git
+  ```
+
 - `GH`・`minorugh.com` は実体を別ディレクトリ（Dropbox）で管理し、
   `.git`本体だけをここに置く構成のため、clone直後に作業ファイル一式が
   展開されてしまう。これを`.git`のみに整理するのが`github-dropbox-cleanup`
   （`github`ターゲットから自動実行される。P1のみ）
+
+### xserver が最新か確認する
+
+GUI を使わず、手元の HEAD と xserver の HEAD を比べる。
+
+```bash
+for r in GH minorugh.com; do
+  l=$(git -C ~/src/github.com/minorugh/$r rev-parse HEAD)
+  x=$(git ls-remote xsrv:/home/minorugh/git/$r.git HEAD | cut -f1)
+  [ "$l" = "$x" ] && echo "OK  $r" || echo "NG  $r local=$l xsrv=$x"
+done
+```
+
+`NG` なら xserver が遅れている。`git remote -v` で、push 先が `xsrv:` の別名に
+なっているか（ホスト名の直書きになっていないか）を確認する。
+
+### GitHub が使えなくなったとき（xserver から復旧）
+
+xserver の bare リポジトリから clone できる。
+
+```bash
+git clone xsrv:/home/minorugh/git/GH.git ~/src/github.com/minorugh/GH
+```
+
+- 前提: 新しい公開鍵が xserver の `authorized_keys` に入っていること。
+  動いているマシンがない場合の登録手段（サーバーパネルなど）は、
+  事前に確認しておく
+- clone 後は、実体が Dropbox にあるため `.git` 以外を削除する
+  （`github-dropbox-cleanup` と同じ整理）
+- `origin` は xserver を向く。GitHub の復旧時や移行時に
+  `git remote set-url origin ...` で付け替える
 
 ## このリポジトリに含まれないもの
 
