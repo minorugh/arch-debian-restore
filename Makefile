@@ -7,6 +7,7 @@
 #   make env-restore # 対話式（gpgパスフレーズ入力）。env_source・abookを復元
 #   make ssh-setup   # 対話式（鍵生成・config/known_hosts展開・GitHub登録を挟むため単独実行）
 #   make all         # dotfiles → github
+#   make i-minorugh  # i.minorugh.com を ~/ に clone し、img/ をサーバーから復元（ssh-setup の鍵を Xserver にも登録したあと。P1のみ）
 
 HOME_SSH := $(HOME)/.ssh
 ENV_SOURCE_DIR := $(HOME)/.env_source
@@ -23,7 +24,7 @@ $(if $(and $(INSIDE_EMACS),$(filter env-restore ssh-setup,$(MAKECMDGOALS))),$(er
 HOSTNAME := $(shell hostname)
 
 .DEFAULT_GOAL := help
-.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup git
+.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup i-minorugh git
 
 help: ## ターゲット一覧を表示する
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -110,6 +111,22 @@ ifeq ($(HOSTNAME),P1)
 			echo "⚠ skip: $$dir/.git が見つかりません（clone失敗の可能性）"; \
 		fi; \
 	done
+else
+	@echo "$(HOSTNAME): サブ機では何もしません"
+endif
+
+########################################################
+## i.minorugh.com（~/ に clone。サーバーが画像の正なので img/ を取り直す）
+########################################################
+I_DIR := $(HOME)/i.minorugh.com
+I_REMOTE := xsrv
+I_REMOTE_DIR := /home/minorugh/minorugh.com/public_html/i
+
+i-minorugh: ## i.minorugh.com を ~/ に clone し、img/ をサーバーから復元（P1のみ）
+ifeq ($(HOSTNAME),P1)
+	test -d $(I_DIR)/.git || git clone git@github.com:minorugh/i.minorugh.com.git $(I_DIR)
+	mkdir -p $(I_DIR)/img $(I_DIR)/inbox
+	rsync -av --include='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-????????.*' --exclude='*' $(I_REMOTE):$(I_REMOTE_DIR)/ $(I_DIR)/img/
 else
 	@echo "$(HOSTNAME): サブ機では何もしません"
 endif
