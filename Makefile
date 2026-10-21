@@ -6,8 +6,11 @@
 #   cd ~/Dropbox/arch-debian-restore
 #   make env-restore # 対話式（gpgパスフレーズ入力）。env_source・abookを復元
 #   make ssh-setup   # 対話式（鍵生成・config/known_hosts展開・GitHub登録を挟むため単独実行）
-#   make all         # dotfiles → github
-#   make i-minorugh  # i.minorugh.com を ~/ に clone し、img/ をサーバーから復元（ssh-setup の鍵を Xserver にも登録したあと。P1のみ）
+#   make all         # dotfiles → github（P1 では ~/i.minorugh.com の clone も含む）
+#
+# 後日（リストア後、安定動作を確認してから）:
+#   i.minorugh.com の img/ は空なので、サーバーから戻す: cd ~/i.minorugh.com && make pull
+#   必要なもの: rsync、ssh xsrv が通ること（ssh-setup の鍵を Xserver にも登録済みであること）
 
 HOME_SSH := $(HOME)/.ssh
 ENV_SOURCE_DIR := $(HOME)/.env_source
@@ -24,7 +27,7 @@ $(if $(and $(INSIDE_EMACS),$(filter env-restore ssh-setup,$(MAKECMDGOALS))),$(er
 HOSTNAME := $(shell hostname)
 
 .DEFAULT_GOAL := help
-.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup i-minorugh git
+.PHONY: all help env-restore ssh-setup dotfiles github github-dropbox-cleanup git
 
 help: ## ターゲット一覧を表示する
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -44,6 +47,9 @@ env-restore: ## Dropbox上のenv.bundle.gpgを復元する（パスフレーズ�
 ########################################################
 ## SSH鍵（マシンごとに新規生成。他機の鍵は流用しない）
 ########################################################
+# 注意: ここで案内するのは GitHub への公開鍵登録だけ。
+# Xserver（ssh xsrv。i.minorugh.com の make pull などで使う）にも、同じ公開鍵を
+# サーバーパネルの SSH 設定で別途登録しないと接続できない。登録後は ssh xsrv true で確認する。
 ssh-setup: ## SSH鍵（空パスフレーズ）を新規生成し、config/known_hosts展開・GitHub登録までを案内する
 	command -v pacman >/dev/null && ( pacman -Q xclip &>/dev/null || sudo pacman -S --needed --noconfirm xclip ) || \
 	( dpkg -s xclip &>/dev/null || sudo apt install -y xclip )
@@ -65,6 +71,8 @@ ssh-setup: ## SSH鍵（空パスフレーズ）を新規生成し、config/known
 	@echo "----------------------------------------------------------"
 	@echo "2) 登録できたら次を実行してください"
 	@echo "   ssh -T git@github.com"
+	@echo "3) Xserver にも、同じ公開鍵をサーバーパネルの SSH 設定で登録してください（make pull 等で必要）"
+	@echo "   登録後の確認: ssh xsrv true"
 
 ########################################################
 ## dotfiles
@@ -80,7 +88,7 @@ dotfiles: ## dotfilesリポジトリをclone
 # 実体が ~/Dropbox 側にあり、ここには .git 本体のみを置くリポジトリ
 DROPBOX_GITDIR_REPOS := GH minorugh.com arch-debian-restore
 
-github: ## GitHubリポジトリ群をclone（P1のみ）
+github: ## GitHubリポジトリ群をclone（~/i.minorugh.com を含む。P1のみ）
 ifeq ($(HOSTNAME),P1)
 	mkdir -p ${HOME}/src/github.com/minorugh
 	cd ${HOME}/src/github.com/minorugh; \
@@ -96,6 +104,8 @@ ifeq ($(HOSTNAME),P1)
 	git clone git@github.com:minorugh/xsrv-GH.git; \
 	git clone git@github.com:minorugh/xsrv-minorugh.git
 	$(MAKE) -s github-dropbox-cleanup
+	cd ${HOME}/; \
+	git clone git@github.com:minorugh/i.minorugh.com.git
 else
 	@echo "$(HOSTNAME): サブ機では何もしません"
 endif
@@ -111,22 +121,6 @@ ifeq ($(HOSTNAME),P1)
 			echo "⚠ skip: $$dir/.git が見つかりません（clone失敗の可能性）"; \
 		fi; \
 	done
-else
-	@echo "$(HOSTNAME): サブ機では何もしません"
-endif
-
-########################################################
-## i.minorugh.com（~/ に clone。サーバーが画像の正なので img/ を取り直す）
-########################################################
-I_DIR := $(HOME)/i.minorugh.com
-I_REMOTE := xsrv
-I_REMOTE_DIR := /home/minorugh/minorugh.com/public_html/i
-
-i-minorugh: ## i.minorugh.com を ~/ に clone し、img/ をサーバーから復元（P1のみ）
-ifeq ($(HOSTNAME),P1)
-	test -d $(I_DIR)/.git || git clone git@github.com:minorugh/i.minorugh.com.git $(I_DIR)
-	mkdir -p $(I_DIR)/img $(I_DIR)/inbox
-	rsync -av --include='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-????????.*' --exclude='*' $(I_REMOTE):$(I_REMOTE_DIR)/ $(I_DIR)/img/
 else
 	@echo "$(HOSTNAME): サブ機では何もしません"
 endif
