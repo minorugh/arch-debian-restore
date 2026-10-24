@@ -88,7 +88,7 @@ dotfiles: ## dotfilesリポジトリをclone
 # 実体が ~/Dropbox 側にあり、ここには .git 本体のみを置くリポジトリ
 DROPBOX_GITDIR_REPOS := GH minorugh.com arch-debian-restore
 
-github: ## GitHubリポジトリ群をclone（~/i.minorugh.com を含む。P1のみ）
+github: ## GitHubリポジトリ群をclone（~/i.minorugh.com ~/cl を含む。P1のみ）
 ifeq ($(HOSTNAME),P1)
 	mkdir -p ${HOME}/src/github.com/minorugh
 	cd ${HOME}/src/github.com/minorugh; \
@@ -105,7 +105,8 @@ ifeq ($(HOSTNAME),P1)
 	git clone git@github.com:minorugh/xsrv-minorugh.git
 	$(MAKE) -s github-dropbox-cleanup
 	cd ${HOME}/; \
-	git clone git@github.com:minorugh/i.minorugh.com.git
+	git clone git@github.com:minorugh/i.minorugh.com.git; \
+	git clone git@github.com:minorugh/cl.git; \
 else
 	@echo "$(HOSTNAME): サブ機では何もしません"
 endif
