@@ -73,6 +73,8 @@ ssh-setup: ## SSH鍵（空パスフレーズ）を新規生成し、config/known
 	@echo "   ssh -T git@github.com"
 	@echo "3) Xserver にも、同じ公開鍵をサーバーパネルの SSH 設定で登録してください（make pull 等で必要）"
 	@echo "   登録後の確認: ssh xsrv true"
+	@echo "4) FileZilla: 設定 → 接続 → SFTP で id_ed25519_$$(hostname) を鍵ファイルに追加する"
+	@echo "   （FileZilla は ~/.ssh/config の IdentityFile を読まない）"
 
 ########################################################
 ## dotfiles
@@ -106,7 +108,7 @@ ifeq ($(HOSTNAME),P1)
 	$(MAKE) -s github-dropbox-cleanup
 	cd ${HOME}/; \
 	git clone git@github.com:minorugh/i.minorugh.com.git; \
-	git clone git@github.com:minorugh/cl.git; \
+	git clone git@github.com:minorugh/cl.git
 else
 	@echo "$(HOSTNAME): サブ機では何もしません"
 endif
