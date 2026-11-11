@@ -104,11 +104,10 @@ ifeq ($(HOSTNAME),P1)
 	git clone git@github.com:minorugh/tempbuf.git; \
 	git clone git@github.com:minorugh/deepl-translate.git; \
 	git clone git@github.com:minorugh/xsrv-GH.git; \
-	git clone git@github.com:minorugh/xsrv-minorugh.git
-	$(MAKE) -s github-dropbox-cleanup
-	cd ${HOME}/; \
-	git clone git@github.com:minorugh/i.minorugh.com.git; \
+	git clone git@github.com:minorugh/xsrv-minorugh.git \
+	git clone git@github.com:minorugh/piclink.git; \
 	git clone git@github.com:minorugh/cl.git
+	$(MAKE) -s github-dropbox-cleanup
 else
 	@echo "$(HOSTNAME): サブ機では何もしません"
 endif
